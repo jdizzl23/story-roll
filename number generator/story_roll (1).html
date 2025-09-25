@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Story Roll Generator</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#121a2b;
+      --muted:#93a0b5;
+      --text:#e6edf6;
+      --accent:#6ee7ff;
+      --accent2:#a78bfa;
+      --ok:#22c55e;
+      --bad:#ef4444;
+      --line:#1f2a44;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,Apple Color Emoji,Segoe UI Emoji;
+      background:radial-gradient(1200px 800px at 80% -10%, rgba(167,139,250,.12), transparent 60%), var(--bg);
+      color:var(--text);
+    }
+    .wrap{max-width:1000px;margin:40px auto;padding:0 16px;}
+    .title{ display:flex;align-items:baseline;gap:12px;margin-bottom:16px;}
+    .title h1{margin:0;font-size:28px;letter-spacing:.2px}
+    .title .badge{font-size:12px;color:#0b1220;background:linear-gradient(90deg,var(--accent),var(--accent2));padding:4px 10px;border-radius:999px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.03),transparent 35%), var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+    .row{display:flex;flex-wrap:wrap;gap:12px}
+    label{font-size:12px;color:var(--muted)}
+    input[type="number"], input[type="text"]{
+      width:100%;background:#0c1426;border:1px solid var(--line);border-radius:10px;color:var(--text);
+      padding:10px 12px;font-size:14px;outline:none;
+    }
+    .ctrl{grid-column:span 3}
+    .ctrl.wide{grid-column:span 6}
+    .ctrl.xwide{grid-column:span 12}
+    .check{display:flex;gap:8px;align-items:center;margin-top:10px;color:var(--muted);font-size:14px}
+    .btn{
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      border:none;color:#0b1220;font-weight:700;border-radius:12px;padding:10px 16px;font-size:14px;cursor:pointer;
+      transition:transform .05s ease;
+    }
+    .btn:active{transform:translateY(1px)}
+    .btn.secondary{ background:#0c1426;color:var(--text);border:1px solid var(--line);}
+    .btn.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:#0b1220}
+    .flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .map{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background:#0c1426;border:1px dashed var(--line);border-radius:12px;padding:10px 12px;color:var(--accent);font-size:13px}
+    .result{ display:grid;gap:10px;grid-template-columns:repeat(3,1fr);margin-top:12px }
+    .pill{padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:#0c1426;font-size:13px}
+    .pill.win{border-color:rgba(34,197,94,.35);color:var(--ok)}
+    .pill.lose{border-color:rgba(239,68,68,.35);color:var(--bad)}
+    .pill.flip{color:#fff}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th, td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+    th{color:var(--muted);font-weight:600;text-align:left}
+    .muted{color:var(--muted)}
+    .small{font-size:12px}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+    .footer{color:var(--muted);font-size:12px;text-align:center;margin:20px 0}
+    @media (max-width:800px){
+      .ctrl{grid-column:span 6}
+      .ctrl.wide{grid-column:span 12}
+    }
+    @media (max-width:520px){
+      .result{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">
+      <h1>Story Roll Generator</h1>
+      <div class="badge">Two-roll + winner map + coin flip</div>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="ctrl"><label>Hit rate (%) for winner map</label>
+          <input id="hitRate" type="number" min="1" max="100" value="5">
+        </div>
+        <div class="ctrl"><label>Roll 1 range (min)</label>
+          <input id="r1min" type="number" value="1">
+        </div>
+        <div class="ctrl"><label>Roll 1 range (max)</label>
+          <input id="r1max" type="number" value="85">
+        </div>
+        <div class="ctrl"><label>Roll 2 range (max)</label>
+          <input id="r2max" type="number" value="100">
+        </div>
+
+        <div class="ctrl xwide">
+          <div class="check">
+            <input id="freshMap" type="checkbox" checked>
+            <label for="freshMap">Generate a fresh winner map every roll</label>
+          </div>
+          <div class="check">
+            <input id="showMapSorted" type="checkbox" checked>
+            <label for="showMapSorted">Show winner map sorted</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="btnSpin">Spin</button>
+        <button class="btn secondary" id="btnNewMap">Generate Map Now</button>
+        <button class="btn secondary" id="btnCopy">Copy Last Result</button>
+        <button class="btn secondary" id="btnExport">Export History CSV</button>
+        <button class="btn warn" id="btnClear">Reset History</button>
+      </div>
+
+      <div style="margin-top:12px">
+        <div class="small muted">Winner map (unique integers in 1–Roll2Max). Default: 5% ⇒ 5 winners out of 100.</div>
+        <div id="mapBox" class="map mono">[not generated yet]</div>
+
+        <div class="result">
+          <div class="pill" id="r1Box">Roll 1: —</div>
+          <div class="pill" id="r2Box">Roll 2: —</div>
+          <div class="pill" id="winBox">Outcome: —</div>
+        </div>
+        <div class="pill flip" id="flipBox" style="display:none">Coin flip: —</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:0;font-size:16px">History</h3>
+        <div class="small muted">Most recent on top</div>
+      </div>
+      <div style="overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:12px;margin-top:8px">
+        <table id="histTable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Hit %</th>
+              <th>Map</th>
+              <th>Roll 1</th>
+              <th>Roll 2</th>
+              <th>Winner?</th>
+              <th>Coin</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="footer">Tip: say “story roll 12%” in chat next time and we’ll prefill the hit rate.</div>
+  </div>
+
+  <script>
+    const byId = (id)=>document.getElementById(id);
+
+    const state = {
+      map: [],
+      lastResult: null,
+      history: []
+    };
+
+    function rngInt(min, max){
+      // inclusive
+      const range = max - min + 1;
+      if (window.crypto && crypto.getRandomValues){
+        const maxUint = 0xFFFFFFFF;
+        let x = new Uint32Array(1);
+        let limit = Math.floor(maxUint / range) * range;
+        do { crypto.getRandomValues(x); } while (x[0] >= limit);
+        return min + (x[0] % range);
+      } else {
+        return Math.floor(Math.random()*range)+min;
+      }
+    }
+
+    function uniqueSample(total, k){
+      // sample k unique ints in [1..total]
+      k = Math.max(0, Math.min(k, total));
+      const set = new Set();
+      while(set.size < k){
+        set.add(rngInt(1, total));
+      }
+      return Array.from(set);
+    }
+
+    function buildMap(){
+      const hit = clamp(parseInt(byId('hitRate').value || '5',10),1,100);
+      const r2max = clamp(parseInt(byId('r2max').value || '100',10),1,10000);
+      const count = Math.max(1, Math.round((hit/100)*r2max));
+      const arr = uniqueSample(r2max, count);
+      state.map = arr;
+      renderMap();
+      return arr;
+    }
+
+    function clamp(x,min,max){ return Math.max(min, Math.min(max, x)); }
+
+    function renderMap(){
+      const sorted = byId('showMapSorted').checked;
+      const r2max = clamp(parseInt(byId('r2max').value || '100',10),1,10000);
+      const hit = clamp(parseInt(byId('hitRate').value || '5',10),1,100);
+      const arr = sorted ? [...state.map].sort((a,b)=>a-b) : state.map;
+      byId('mapBox').textContent = `(${Math.round((arr.length/r2max)*100)}% of ${r2max})  ` + JSON.stringify(arr);
+    }
+
+    function spin(){
+      const fresh = byId('freshMap').checked;
+      if(fresh || state.map.length===0) buildMap();
+      const r1min = parseInt(byId('r1min').value || '1',10);
+      const r1max = parseInt(byId('r1max').value || '85',10);
+      const r2max = parseInt(byId('r2max').value || '100',10);
+      const r1 = rngInt(r1min, r1max);
+      const r2 = rngInt(1, r2max);
+      const win = state.map.includes(r2);
+      const res = { time: new Date().toISOString(), hit: byId('hitRate').value, map:[...state.map], r1, r2, win, coin: null };
+      byId('r1Box').textContent = `Roll 1: ${r1}`;
+      byId('r2Box').textContent = `Roll 2: ${r2}`;
+      byId('winBox').textContent = win ? 'Outcome: WINNER' : 'Outcome: NOT a winner';
+      byId('winBox').className = 'pill ' + (win ? 'win':'lose');
+      const flipBox = byId('flipBox');
+      if(win){
+        const coin = rngInt(0,1)===0 ? 'good' : 'bad';
+        res.coin = coin;
+        flipBox.style.display = 'inline-block';
+        flipBox.textContent = `Coin flip: ${coin}`;
+        flipBox.style.border = '1px solid ' + (coin==='good' ? 'rgba(34,197,94,.35)':'rgba(239,68,68,.35)');
+        flipBox.style.background = coin==='good' ? 'rgba(34,197,94,.12)' : 'rgba(239,68,68,.12)';
+      } else {
+        flipBox.style.display = 'none';
+      }
+      state.lastResult = res;
+      state.history.unshift(res);
+      renderHistory();
+    }
+
+    function renderHistory(){
+      const tbody = byId('histTable').querySelector('tbody');
+      tbody.innerHTML = '';
+      for(const h of state.history){
+        const tr = document.createElement('tr');
+        const td = (t)=>{ const x=document.createElement('td'); x.textContent=t; return x; };
+        tr.appendChild(td(new Date(h.time).toLocaleString()));
+        tr.appendChild(td(`${h.hit}%`));
+        tr.appendChild(td(JSON.stringify(h.map)));
+        tr.appendChild(td(h.r1));
+        tr.appendChild(td(h.r2));
+        tr.appendChild(td(h.win ? 'WINNER':'—'));
+        tr.appendChild(td(h.coin ?? ''));
+        tbody.appendChild(tr);
+      }
+    }
+
+    function copyLast(){
+      if(!state.lastResult){ alert('No result yet. Spin first.'); return; }
+      const lr = state.lastResult;
+      const txt = [
+        `Winner map (${lr.hit}/100): ${JSON.stringify(lr.map)}`,
+        `Roll 1 (1–${byId('r1max').value}): ${lr.r1}`,
+        `Roll 2 (1–${byId('r2max').value}): ${lr.r2} → ${lr.win ? 'WINNER' : 'NOT a winner'}`,
+        lr.win ? `Coin flip: ${lr.coin}` : null
+      ].filter(Boolean).join('\n');
+      navigator.clipboard.writeText(txt).then(()=>{
+        byId('btnCopy').textContent = 'Copied!';
+        setTimeout(()=>byId('btnCopy').textContent='Copy Last Result',800);
+      });
+    }
+
+    function exportCSV(){
+      if(state.history.length===0){ alert('No history to export.'); return; }
+      const rows = [
+        ['time','hit_percent','map','roll1','roll2','winner','coin'],
+        ...state.history.map(h => [h.time, h.hit, JSON.stringify(h.map), h.r1, h.r2, h.win ? 'WINNER' : '', h.coin ?? ''])
+      ];
+      const csv = rows.map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'story_roll_history.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function clearHistory(){
+      if(!confirm('Reset history?')) return;
+      state.history = [];
+      renderHistory();
+    }
+
+    // events
+    byId('btnSpin').addEventListener('click', spin);
+    byId('btnNewMap').addEventListener('click', buildMap);
+    byId('btnCopy').addEventListener('click', copyLast);
+    byId('btnExport').addEventListener('click', exportCSV);
+    byId('btnClear').addEventListener('click', clearHistory);
+    ['hitRate','r2max','showMapSorted'].forEach(id=>byId(id).addEventListener('input', renderMap));
+
+    // init
+    buildMap();
+  </script>
+</body>
+</html>
